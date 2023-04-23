@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+library(lubridate)
+
 attorneys <- read_csv("attorneys.csv")
 attorneytimeentries <- read_csv("attorneytimeentries.csv")
 categories <- read_csv("categories.csv")
@@ -16,6 +18,9 @@ questionposts <- read_csv("questionposts.csv")
 questions <- read_csv("questions.csv")
 statesites <- read_csv("statesites.csv")
 subcategories <- read_csv("subcategories.csv")
+
+# Getting rid of empty columns in questionposts
+questionposts <- questionposts %>% select("Id", "StateAbbr", "QuestionUno", "PostText", "CreatedUtc")
 ```
 
 Graph of the distribution of each category of questions that were asked by clients
@@ -99,7 +104,26 @@ ggplot(filter(client_times, Age < 150)) +
   facet_wrap(~ Category) +
   theme_bw() +
   labs(y = "Average Time Spent per Attorney",
-       title = "Age vs Average Time Spent per Attorney by Category")+
+       title = "Age vs Average Time Spent per Attorney by Category") +
   xlim(0,101)
+```
+
+Seeing Distributions of the Days of the Week
+```{r}
+questions <- questions %>%
+  mutate(dayofweek = wday(AskedOnUtc, label = T))
+
+ggplot(questions) +
+  geom_bar(aes(dayofweek)) +
+  theme_bw() +
+  labs(x = "Day of the Week", y = "Frequency",
+       title = "Frequency of Questions by Day of the Week")
+
+ggplot(questions) +
+  geom_bar(aes(dayofweek)) +
+  facet_wrap(~ Category) +
+  theme_bw() +
+  labs(x = "Day of the Week", y = "Frequency",
+       title = "Frequency of Questions by Day of the Week, by Category")
 ```
 
