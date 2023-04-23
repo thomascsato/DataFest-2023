@@ -99,6 +99,7 @@ ggplot(filter(client_times, Age < 150)) +
   facet_wrap(~ Category) +
   theme_bw() +
   labs(y = "Average Time Spent per Attorney",
-       title = "Age vs Average Time Spent per Attorney by Category")
+       title = "Age vs Average Time Spent per Attorney by Category")+
+  xlim(0,101)
 ```
 
