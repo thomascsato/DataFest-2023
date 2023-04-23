@@ -8,6 +8,14 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
+attorneys <- read_csv("attorneys.csv")
+attorneytimeentries <- read_csv("attorneytimeentries.csv")
+categories <- read_csv("categories.csv")
+clients <- read_csv("clients.csv")
+questionposts <- read_csv("questionposts.csv")
+questions <- read_csv("questions.csv")
+statesites <- read_csv("statesites.csv")
+subcategories <- read_csv("subcategories.csv")
 ```
 
 Graph of the distribution of each category of questions that were asked by clients
