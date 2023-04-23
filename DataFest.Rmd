@@ -1,0 +1,96 @@
+---
+title: "Untitled"
+author: "Thomas Sato"
+date: "2023-04-22"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+Graph of the distribution of each category of questions that were asked by clients
+```{r}
+ggplot(questions) +
+  geom_bar(aes(fct_rev(fct_infreq(Category)))) +
+  coord_flip() +
+  labs(x = "Category", y = "Frequency", title = "Distribution of Categories of Questions") +
+  theme_bw()
+```
+
+Graph of the distribution for the other category, but all its subcategories (filtered for n > 250 for visualization purposes)
+```{r}
+questions %>%
+  filter(Category == "Other") %>%
+  group_by(Subcategory) %>%
+  summarize(n = n()) %>%
+  filter(n > 250) %>%
+  ggplot() +
+    geom_col(aes(fct_rev(fct_infreq(Subcategory, n)), n)) +
+    coord_flip() +
+    theme_bw() +
+    labs(x = "Subcategory", y = "Frequency", title = "Distribution of 'Other' Category, by Subcategory")
+```
+
+Far and away, Family and Children is the highest category in terms of who is the clientele of the pro-bono jobs.
+
+```{r}
+questions_states <- questions %>%
+  count(StateAbbr) %>%
+  arrange(desc(n))
+
+questions_states_n <- questions %>%
+  count(StateAbbr, Category) 
+
+prop.categories <- left_join(questions_states_n, questions_states,
+                             by = c("StateAbbr" = "StateAbbr")) %>%
+  mutate(prop_category = n.x / n.y)
+
+prop.categories %>%
+  filter(Category == "Family and Children") %>%
+  ggplot() +
+    geom_col(aes(fct_rev(fct_infreq(StateAbbr, prop_category)), prop_category)) +
+    coord_flip() +
+    theme_bw() +
+    labs(x = "State Abbreviation",
+         y = "Proportion that 'Family and Children' Shows up in a Given State",
+         title = "States' Proportions of 'Family and Children'")
+```
+
+```{r}
+client_variables <- c("ClientUno", "EthnicIdentity", "StateAbbr", "Age", "Gender", "MaritalStatus",
+                      "Imprisoned", "NumberInHousehold", "AnnualIncome", "CheckingBalance",
+                      "SavingsBalance", "InvestmentsBalance")
+questions_variables <- c("AskedByClientUno", "TakenByAttorneyUno", "Category")
+attorneytimeentries_variables <- c("AttorneyUno", "Hours")
+
+vars_client <- clients %>% select(all_of(client_variables))
+vars_questions <- questions %>% select(all_of(questions_variables))
+vars_attorneytime <- attorneytimeentries %>% select(all_of(attorneytimeentries_variables))
+
+length(unique(vars_attorneytime$AttorneyUno))
+vars_attorneytime <- vars_attorneytime %>%
+  group_by(AttorneyUno) %>%
+  summarize(avgtime = mean(Hours))
+
+clientquestions <- left_join(vars_client, vars_questions, by = c("ClientUno" = "AskedByClientUno")) 
+client_times <- left_join(clientquestions, vars_attorneytime, by = c("TakenByAttorneyUno" = "AttorneyUno"))
+
+client_times <- cbind(lapply(client_times[, c("Age", "NumberInHousehold", "AnnualIncome",
+                                        "SavingsBalance", "CheckingBalance",
+                                        "InvestmentsBalance")], as.numeric),
+                      client_times[, c("EthnicIdentity", "StateAbbr", "Gender",
+                                       "MaritalStatus", "Imprisoned",
+                                       "TakenByAttorneyUno", "Category", "ClientUno",
+                                       "avgtime")])
+
+
+ggplot(filter(client_times, Age < 150)) +
+  geom_point(aes(Age, avgtime)) +
+  facet_wrap(~ Category) +
+  theme_bw() +
+  labs(y = "Average Time Spent per Attorney",
+       title = "Age vs Average Time Spent per Attorney by Category")
+```
+
