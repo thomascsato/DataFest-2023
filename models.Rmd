@@ -1,0 +1,118 @@
+---
+title: "Untitled"
+author: "Thomas Sato"
+date: "2023-04-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+clients <- read_csv("clients.csv")
+questions <- read_csv("questions.csv")
+
+questions_variables <- c("AskedByClientUno", "TakenByAttorneyUno", "Category")
+vars_questions <- questions %>% select(all_of(questions_variables))
+
+
+client_num <- c("Age", "NumberInHousehold", "AnnualIncome",
+                "SavingsBalance", "CheckingBalance",
+                "InvestmentsBalance")
+client_chr <- c("EthnicIdentity", "StateAbbr", "Gender",
+                "MaritalStatus", "Imprisoned",
+                "ClientUno", "Veteran")
+  
+clients <- cbind(lapply(clients[, client_num], as.numeric),
+                 clients[, client_chr])
+clients <- cbind(clients[, client_num],
+                 lapply(clients[, client_chr], factor))
+
+clients[clients == "NULL"] <- NA
+
+# Not best practice to do this, but for the simplicity of the model, we do it.
+clients <- clients %>% separate(EthnicIdentity, into = c("EthnicIdentity"),
+                               sep = ",")
+clients <- clients %>% separate(Gender, into = c("Gender"),
+                                sep = ",")
+clients$EthnicIdentity <- factor(clients$EthnicIdentity)
+clients$Gender <- factor(clients$Gender)
+
+clientquestions <- left_join(clients, vars_questions,
+                             by = c("ClientUno" = "AskedByClientUno")) 
+clientquestions$Category <- factor(clientquestions$Category)
+
+clientquestions[clientquestions == "NULL"] <- NA
+
+clientquestions <- drop_na(clientquestions, Category)
+
+clientquestions <- subset(clientquestions, select = c(Age, AnnualIncome, EthnicIdentity, Category))
+
+# Imputation Step
+clientquestions$Age[is.na(clientquestions$Age)] <- median(clientquestions$Age, na.rm = TRUE)
+clientquestions$AnnualIncome[is.na(clientquestions$AnnualIncome)] <- median(clientquestions$AnnualIncome, na.rm = TRUE)
+
+
+set.seed(2)
+train_indices <- sample(1:nrow(clientquestions), nrow(clientquestions) * (3/4))
+
+train <- clientquestions[train_indices, ]
+test <- clientquestions[-train_indices, ]
+
+```
+
+Model?
+```{r}
+
+nadrop_cq <- drop_na(clientquestions)
+str(nadrop_cq)
+set.seed(2)
+train_indices <- sample(1:nrow(nadrop_cq), nrow(nadrop_cq) * (3/4))
+
+train <- nadrop_cq[train_indices, ]
+test <- nadrop_cq[-train_indices, ]
+
+library(rpart)
+library(rpart.plot)
+category_tree <- rpart(Category ~ Age + AnnualIncome + EthnicIdentity,
+                       data = nadrop_cq,
+                       subset = train_indices,
+                       control = rpart.control(minsplit = 1, cp = .0005),
+                       method = "class")
+summary(category_tree)
+levels(nadrop_cq$Category)
+prp(category_tree, faclen = 0, cex = 0.7, extra=5, space=.5)
+text(category_tree, use.n = TRUE, all = TRUE, cex = 0.8)
+
+printcp(category_tree)
+plotcp(category_tree)
+par(mfrow = c(1, 1))
+rsq.rpart(category_tree)
+
+#Validation
+predicted_categories <- predict(category_tree,
+                                newdata = test[, -4],
+                                type = "class")
+
+length(predicted_categories)
+length(test$Category)
+confusionmatrix <- table(predicted_categories, test$Category)
+
+# Correct rate
+correct_rate <- sum(diag(confusionmatrix)) / sum(confusionmatrix)
+# Error rate
+error_rate <- 1 - correct_rate
+error_rate
+```
+Order:
+Consumer Financial Questions, Education, Family and Children, Health and Disability, Housing and Homelessness
+Income Maintenance, Individual Rights, Juvenile, Other, Work employment and unemployment
+
+
+
+Correct rate of 0.44
+
+
+
